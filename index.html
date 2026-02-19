@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Panel Scanner Launcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#99cd32",
+                        "background-dark": "#121212",
+                        "surface-dark": "#1e1e1e",
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-background-dark text-white min-h-screen flex flex-col items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background-dark to-background-dark">
+
+    <div class="mb-12 text-center">
+        <div class="w-32 h-32 flex items-center justify-center mx-auto mb-6">
+            <img src="./logo_sustentambiente.png" alt="Sustentambiente Logo" class="w-full h-full object-contain">
+        </div>
+        <h1 class="text-3xl font-black tracking-tighter">SUSTENTA<span class="text-primary">AMBIENTE</span></h1>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Energia solar</p>
+    </div>
+
+    <div class="w-full max-w-sm space-y-4">
+        <a href="./captura_de_paneles_-_nueva_paleta/code.html"
+            class="group block bg-white dark:bg-surface-dark p-6 rounded-3xl border-2 border-transparent hover:border-primary transition-all shadow-xl active:scale-95">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-black">
+                    <span class="material-symbols-outlined text-3xl">qr_code_scanner</span>
+                </div>
+                <div>
+                    <h2 class="text-xl font-black">Escanear</h2>
+                    <p class="text-slate-500 text-sm">Captura y OCR de paneles</p>
+                </div>
+                <div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span class="material-symbols-outlined text-primary">arrow_forward_ios</span>
+                </div>
+            </div>
+        </a>
+
+        <a href="./historial_de_capturas/code.html"
+            class="group block bg-white dark:bg-surface-dark p-6 rounded-3xl border-2 border-slate-200 dark:border-border-dark hover:border-slate-400 transition-all shadow-xl active:scale-95">
+            <div class="flex items-center gap-5">
+                <div
+                    class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                    <span class="material-symbols-outlined text-3xl">history</span>
+                </div>
+                <div>
+                    <h2 class="text-xl font-black">Historial</h2>
+                    <p class="text-slate-500 text-sm">Ver capturas guardadas</p>
+                </div>
+                <div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span class="material-symbols-outlined">arrow_forward_ios</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <footer class="mt-20 text-slate-600 text-[10px] font-bold uppercase tracking-[0.2em]">
+        Google Vision Enabled
+    </footer>
+
+</body>
+
+</html>
