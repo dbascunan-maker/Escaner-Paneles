@@ -14,8 +14,6 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script src="../js/db.js"></script>
     <script id="tailwind-config">
         tailwind.config = {
@@ -174,6 +172,11 @@
                     return;
                 }
 
+                if (typeof google === 'undefined') {
+                    alert("Error: Las librerías de Google no han cargado. Verifique su conexión y refresque (Ctrl+F5).");
+                    return;
+                }
+
                 uploadReportBtn.disabled = true;
                 const originalText = uploadReportBtn.innerHTML;
                 uploadReportBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> ...';
@@ -208,23 +211,30 @@
 
             function initDriveAuth() {
                 try {
+                    if (!google.accounts.oauth2.initTokenClient) {
+                        alert("Librería Google Identity no lista. Intente en unos segundos.");
+                        return;
+                    }
+
                     tokenClient = google.accounts.oauth2.initTokenClient({
                         client_id: CLIENT_ID,
                         scope: 'https://www.googleapis.com/auth/drive.file',
                         callback: (response) => {
                             if (response.error !== undefined) {
                                 console.error("Error Auth:", response);
-                                alert("Error de autenticación: " + (response.error_description || response.error));
+                                alert("Error de Google: " + (response.error_description || response.error));
                                 return;
                             }
                             accessToken = response.access_token;
                             startDriveFlow();
                         },
                     });
+
+                    alert("Por favor, complete la autorización en la ventana emergente.");
                     tokenClient.requestAccessToken({ prompt: 'consent' });
                 } catch (err) {
                     console.error("Error Init Drive:", err);
-                    alert("Error al iniciar Google Drive. Verifique su Client ID.");
+                    alert("Error crítico al iniciar: " + err.message);
                 }
             }
 

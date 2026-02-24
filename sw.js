@@ -1,4 +1,4 @@
-const CACHE_NAME = 'solarscan-v2';
+const CACHE_NAME = 'solarscan-v3';
 const ASSETS = [
   './',
   './index.html',
