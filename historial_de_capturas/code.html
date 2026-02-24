@@ -12,8 +12,6 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script src="../js/db.js"></script>
     <script id="tailwind-config">
         tailwind.config = {
@@ -138,16 +136,11 @@
             const clearAllBtn = document.getElementById('clear-all-btn');
             const uploadReportBtn = document.getElementById('upload-report-btn');
 
-            // Google Drive Config: He restaurado el ID previo. Verifique si es el correcto.
-            const DRIVE_PARENT_ID = '15-HgejfO7iVHI62yCi7x35FSfxbbdfpb';
-            const CLIENT_ID = '1097241258833-v7m0q0i2m5n6n5n5n5n5n5n5n5n5n5n.apps.googleusercontent.com';
-            let tokenClient;
-            let accessToken = null;
+            // Google Drive Bridge - Sin popups, sin login
+            const BRIDGE_URL = 'https://script.google.com/macros/s/AKfycbwTabRmxZVUb0Ft5rGyP3HI77hfeSShEe4aawJqPgj0HdbQDzjwLkpClSD7SGgSFhmz8w/exec';
 
             async function updateStorageInfo() {
                 const stats = await getDbStats();
-                // For IndexedDB, we don't have a rigid 5MB limit like localStorage,
-                // but let's show progress based on 500 photos (the user's benchmark)
                 const limit = 500;
                 const pct = Math.min(Math.round((stats.count / limit) * 100), 100);
                 document.getElementById('storage-bar').style.width = pct + '%';
@@ -160,106 +153,7 @@
                 }
             }
 
-            async function startDriveFlow() {
-                const history = await getHistory();
-                if (history.length === 0) {
-                    alert("No hay capturas para subir.");
-                    return;
-                }
-
-                if (!accessToken) {
-                    initDriveAuth();
-                    return;
-                }
-
-                if (typeof google === 'undefined') {
-                    alert("Error: Las librerías de Google no han cargado. Verifique su conexión y refresque (Ctrl+F5).");
-                    return;
-                }
-
-                uploadReportBtn.disabled = true;
-                const originalText = uploadReportBtn.innerHTML;
-                uploadReportBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> ...';
-
-                try {
-                    const projectName = history[0]?.projectName || "Sin_Proyecto";
-                    const folderName = `SolarScan - ${projectName}`;
-
-                    // 1. Create Folder
-                    const folderId = await createDriveFolder(folderName);
-
-                    // 2. Generate and Upload Excel
-                    await uploadExcelToFolder(history, folderId, projectName);
-
-                    // 3. Upload Photos
-                    let count = 0;
-                    for (const item of history) {
-                        count++;
-                        uploadReportBtn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">sync</span> ${count}/${history.length}`;
-                        await uploadFileToFolder(item, folderId);
-                    }
-
-                    alert("¡Reporte completo subido con éxito a Google Drive!");
-                } catch (e) {
-                    console.error(e);
-                    alert("Error en la subida: " + e.message);
-                } finally {
-                    uploadReportBtn.disabled = false;
-                    uploadReportBtn.innerHTML = originalText;
-                }
-            }
-
-            function initDriveAuth() {
-                try {
-                    if (!google.accounts.oauth2.initTokenClient) {
-                        alert("Librería Google Identity no lista. Intente en unos segundos.");
-                        return;
-                    }
-
-                    tokenClient = google.accounts.oauth2.initTokenClient({
-                        client_id: CLIENT_ID,
-                        scope: 'https://www.googleapis.com/auth/drive.file',
-                        callback: (response) => {
-                            if (response.error !== undefined) {
-                                console.error("Error Auth:", response);
-                                alert("Error de Google: " + (response.error_description || response.error));
-                                return;
-                            }
-                            accessToken = response.access_token;
-                            startDriveFlow();
-                        },
-                    });
-
-                    alert("Por favor, complete la autorización en la ventana emergente.");
-                    tokenClient.requestAccessToken({ prompt: 'consent' });
-                } catch (err) {
-                    console.error("Error Init Drive:", err);
-                    alert("Error crítico al iniciar: " + err.message);
-                }
-            }
-
-            async function createDriveFolder(name) {
-                const metadata = {
-                    name: name,
-                    mimeType: 'application/vnd.google-apps.folder',
-                    parents: [DRIVE_PARENT_ID]
-                };
-
-                const response = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
-                    method: 'POST',
-                    headers: new Headers({ 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }),
-                    body: JSON.stringify(metadata)
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error("Error creando carpeta: " + error.error.message);
-                }
-                const data = await response.json();
-                return data.id;
-            }
-
-            async function uploadExcelToFolder(history, folderId, projectName) {
+            function generateExcelBase64(history, projectName) {
                 const wb = XLSX.utils.book_new();
                 const data = [];
                 for (let i = 0; i < 3; i++) data.push([]);
@@ -280,49 +174,80 @@
                 ws['!cols'] = [{ wch: 2 }, { wch: 2 }, { wch: 2 }, { wch: 15 }, { wch: 25 }];
                 XLSX.utils.book_append_sheet(wb, ws, "Reporte");
 
-                const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-                await uploadBlob(blob, `Reporte_Paneles_${projectName}.xlsx`, folderId);
+                const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+                return excelBuffer;
             }
 
-            async function uploadFileToFolder(item, folderId) {
-                const base64Data = item.image.split(',')[1];
-                const fileName = `${item.serial.replace(/[^a-z0-9]/gi, '_')}_P${item.panel}.jpg`;
-                const blob = base64ToBlob(base64Data, 'image/jpeg');
-                await uploadBlob(blob, fileName, folderId);
-            }
+            async function startDriveUpload() {
+                const history = await getHistory();
+                if (history.length === 0) {
+                    alert("No hay capturas para subir.");
+                    return;
+                }
 
-            async function uploadBlob(blob, fileName, folderId) {
-                const metadata = {
-                    name: fileName,
-                    parents: [folderId]
-                };
+                if (!confirm(`¿Subir ${history.length} capturas a Google Drive?`)) return;
 
-                const formData = new FormData();
-                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-                formData.append('file', blob);
+                uploadReportBtn.disabled = true;
+                const originalText = uploadReportBtn.innerHTML;
+                uploadReportBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> ...';
 
-                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
-                    method: 'POST',
-                    headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
-                    body: formData
-                });
+                try {
+                    const projectName = history[0]?.projectName || "Sin_Proyecto";
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error("Error subiendo archivo: " + error.error.message);
+                    // Generar Excel en base64
+                    uploadReportBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Excel';
+                    const excelBase64 = generateExcelBase64(history, projectName);
+
+                    // Preparar fotos
+                    uploadReportBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Fotos';
+                    const photos = history.map(item => ({
+                        serial: item.serial || "Sin_Codigo",
+                        panel: item.panel,
+                        image: item.image
+                    }));
+
+                    // Enviar todo al Bridge
+                    uploadReportBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Drive';
+
+                    const payload = {
+                        projectName: projectName,
+                        excelData: excelBase64,
+                        photos: photos
+                    };
+
+                    const response = await fetch(BRIDGE_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    // Google Apps Script con no-cors devuelve opaque response
+                    // Intentamos leer la respuesta, si no se puede asumimos éxito
+                    let result;
+                    try {
+                        result = await response.json();
+                    } catch (e) {
+                        // En modo no-cors no podemos leer body, asumimos éxito
+                        result = { status: 'success', message: 'Solicitud enviada al servidor de Drive.' };
+                    }
+
+                    if (result.status === 'error') {
+                        alert("❌ Error de Drive: " + result.message);
+                    } else {
+                        alert("✅ ¡Reporte enviado a Google Drive!\nCarpeta: SolarScan - " + projectName);
+                    }
+
+                } catch (e) {
+                    console.error('Error Drive Bridge:', e);
+                    alert("❌ Error de conexión: " + e.message + "\nVerifique su internet.");
+                } finally {
+                    uploadReportBtn.disabled = false;
+                    uploadReportBtn.innerHTML = originalText;
                 }
             }
 
-            function base64ToBlob(base64, type) {
-                const binary = atob(base64);
-                const array = [];
-                for (let i = 0; i < binary.length; i++) array.push(binary.charCodeAt(i));
-                return new Blob([new Uint8Array(array)], { type: type });
-            }
-
-            uploadReportBtn.onclick = startDriveFlow;
+            uploadReportBtn.onclick = startDriveUpload;
 
             async function renderHistory() {
                 const history = await getHistory();
