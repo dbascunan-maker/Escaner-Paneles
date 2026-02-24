@@ -13,6 +13,7 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
     <link rel="manifest" href="../manifest.json">
+    <script src="../js/db.js"></script>
     <!-- Removiendo tesseract para usar Google Vision API (Cloud) -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -164,6 +165,16 @@
             </div>
         </div>
 
+        <!-- Project Name Section -->
+        <div
+            class="bg-white dark:bg-surface-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-2">Nombre del
+                Proyecto</p>
+            <input type="text" id="project-name"
+                class="w-full bg-slate-50 dark:bg-background-dark text-slate-900 dark:text-white border border-slate-200 dark:border-border-dark rounded-lg py-2 px-3 text-sm focus:border-primary focus:ring-0 transition-all"
+                placeholder="Ej: Instalación Atacama">
+        </div>
+
         <!-- Scanner Viewport Area -->
         <div id="viewport-container"
             class="relative w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-border-dark touch-none">
@@ -258,6 +269,7 @@
             const zoomInBtn = document.getElementById('zoom-in-btn');
             const zoomOutBtn = document.getElementById('zoom-out-btn');
             const panelTitle = document.getElementById('panel-title');
+            const projectNameInput = document.getElementById('project-name');
             const statusIndicator = document.getElementById('status-indicator');
             const reticle = document.getElementById('reticle-container');
             const viewport = document.getElementById('viewport-container');
@@ -271,12 +283,30 @@
             const visionApiKey = "AIzaSyCNGVZJDFSXbCFmb6ftfMZpJ1StoxIIXSc";
             statusIndicator.textContent = "Sustentambiente OK";
 
-            let panelCount = parseInt(localStorage.getItem('panelCount') || '1');
+            let panelCount = 1;
+
+            // Initialize DB and Load State
+            async function init() {
+                const stats = await getDbStats();
+                // We use +1 because panelCount is for the NEXT panel
+                // But better to track panel number explicitly in the record
+                // For now, let's stick to the user's logic of auto-incrementing
+                const history = await getHistory();
+                panelCount = history.length > 0 ? (Math.max(...history.map(h => h.panel)) + 1) : 1;
+                panelTitle.textContent = `Panel Numero ${panelCount}`;
+
+                // Load last used project name
+                projectNameInput.value = localStorage.getItem('lastProjectName') || '';
+            }
+
+            init();
+
             let currentImageData = null;
             let imgScale = 1;
 
-            // Initial State
-            panelTitle.textContent = `Panel Numero ${panelCount}`;
+            projectNameInput.oninput = (e) => {
+                localStorage.setItem('lastProjectName', e.target.value);
+            };
 
             // INTERACTIVE CROPPER LOGIC
             let isDragging = false;
@@ -537,20 +567,19 @@
                     const captureData = {
                         serial: serialInput.value || "Sin Código",
                         panel: panelCount,
+                        projectName: projectNameInput.value || "Sin Proyecto",
                         date: new Date().toLocaleString(),
+                        timestamp: new Date().toISOString(),
                         image: finalSnapshot
                     };
 
-                    const history = JSON.parse(localStorage.getItem('capturesHistory') || '[]');
-                    history.unshift(captureData);
-                    localStorage.setItem('capturesHistory', JSON.stringify(history));
+                    await saveCapture(captureData);
 
-                    panelCount++;
-                    localStorage.setItem('panelCount', panelCount);
-                    alert(`¡Guardado! Panel #${panelCount - 1}`);
+                    alert(`¡Guardado! Panel #${panelCount}`);
                     location.reload(); // Hard reset para limpiar todo
                 } catch (e) {
-                    alert("¡MEMORIA LLENA!");
+                    console.error(e);
+                    alert("Error al guardar: " + e.message);
                 }
             };
         </script>
